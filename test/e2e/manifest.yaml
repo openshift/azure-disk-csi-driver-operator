@@ -25,6 +25,8 @@ DriverInfo:
     # https://github.com/kubernetes-sigs/azuredisk-csi-driver/issues/800
     controllerExpansion: false
     nodeExpansion: false
-    snapshotDataSource: true
+    # TODO: enable snapshot tests once the following issue is fixed:
+    # https://bugzilla.redhat.com/show_bug.cgi?id=1913974
+    snapshotDataSource: false
     topology: true
     multipods: true
