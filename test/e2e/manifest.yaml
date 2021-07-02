@@ -21,10 +21,8 @@ DriverInfo:
     block: true
     exec: true
     volumeLimits: false
-    # TODO: enable volume resizing once the following issue is fixed:
-    # https://github.com/kubernetes-sigs/azuredisk-csi-driver/issues/800
-    controllerExpansion: false
-    nodeExpansion: false
+    controllerExpansion: true
+    nodeExpansion: true
     snapshotDataSource: true
     topology: true
     multipods: true
