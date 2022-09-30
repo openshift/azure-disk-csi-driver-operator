@@ -222,7 +222,6 @@ func (c *CSIControllerSet) WithStorageClassController(
 	file string,
 	kubeClient kubernetes.Interface,
 	namespacedInformerFactory informers.SharedInformerFactory,
-	hooks ...csistorageclasscontroller.StorageClassHookFunc,
 ) *CSIControllerSet {
 	c.csiStorageclassController = csistorageclasscontroller.NewCSIStorageClassController(
 		name,
@@ -232,7 +231,6 @@ func (c *CSIControllerSet) WithStorageClassController(
 		namespacedInformerFactory,
 		c.operatorClient,
 		c.eventRecorder,
-		hooks...,
 	)
 	return c
 }
