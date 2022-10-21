@@ -9,6 +9,8 @@ import (
 
 	"github.com/openshift/azure-disk-csi-driver-operator/pkg/azurestackhub"
 
+	apiextclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	kubeclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -49,6 +51,12 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	// Create config clientset and informer. This is used to get the cluster ID
 	configClient := configclient.NewForConfigOrDie(rest.AddUserAgent(controllerConfig.KubeConfig, operatorName))
 	configInformers := configinformers.NewSharedInformerFactory(configClient, 20*time.Minute)
+
+	// Create apiextension client. This is used to verify is a VolumeSnapshotClass CRD exists.
+	apiExtClient, err := apiextclient.NewForConfig(rest.AddUserAgent(controllerConfig.KubeConfig, operatorName))
+	if err != nil {
+		return err
+	}
 
 	// Create GenericOperatorclient. This is used by the library-go controllers created down below
 	gvr := opv1.SchemeGroupVersion.WithResource("clustercsidrivers")
@@ -98,7 +106,6 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		kubeInformersForNamespaces,
 		assets.ReadFile,
 		[]string{
-			volumeSnapshotPath,
 			"controller_sa.yaml",
 			"controller_pdb.yaml",
 			"node_sa.yaml",
@@ -120,6 +127,25 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 			"rbac/kube_rbac_proxy_binding.yaml",
 			"rbac/prometheus_role.yaml",
 			"rbac/prometheus_rolebinding.yaml",
+		},
+	).WithConditionalStaticResourcesController(
+		"AzureDiskDriverConditionalStaticResourcesController",
+		kubeClient,
+		dynamicClient,
+		kubeInformersForNamespaces,
+		assets.ReadFile,
+		[]string{
+			volumeSnapshotPath,
+		},
+		// Only install when CRD exists.
+		func() bool {
+			name := "volumesnapshotclasses.snapshot.storage.k8s.io"
+			_, err := apiExtClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), name, metav1.GetOptions{})
+			return err == nil
+		},
+		// Don't ever remove.
+		func() bool {
+			return false
 		},
 	).WithCSIConfigObserverController(
 		"AzureDiskDriverCSIConfigObserverController",
