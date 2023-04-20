@@ -41,7 +41,7 @@ func TestInjectPodSpecHappyPath(t *testing.T) {
 	assert.Nil(t, yaml.Unmarshal(file, dep))
 
 	injectEnvAndMounts(&dep.Spec.Template.Spec)
-	assert.Len(t, dep.Spec.Template.Spec.Volumes, 6)
+	assert.Len(t, dep.Spec.Template.Spec.Volumes, 7)
 	foundCfgVolume := false
 	for _, v := range dep.Spec.Template.Spec.Volumes {
 		if v.Name == azureCfgName {
@@ -59,7 +59,7 @@ func TestInjectPodSpecHappyPath(t *testing.T) {
 		}
 	}
 	assert.NotNil(t, csiDriver, "no csi-driver container found")
-	assert.Len(t, csiDriver.VolumeMounts, 4)
+	assert.Len(t, csiDriver.VolumeMounts, 5)
 	foundCfgVolumeMount := false
 	for _, v := range csiDriver.VolumeMounts {
 		if v.Name == azureCfgName {

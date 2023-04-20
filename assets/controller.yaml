@@ -109,6 +109,9 @@ spec:
             - name: msi
               mountPath: /var/lib/waagent/ManagedIdentity-Settings
               readOnly: true
+            - name: bound-sa-token
+              mountPath: /var/run/secrets/openshift/serviceaccount
+              readOnly: true
           resources:
             requests:
               memory: 50Mi
@@ -352,3 +355,9 @@ spec:
             secretName: azure-disk-csi-driver-controller-metrics-serving-cert
         - name: merged-cloud-config
           emptydir:
+        - name: bound-sa-token
+          projected:
+            sources:
+            - serviceAccountToken:
+                path: token
+                audience: openshift
