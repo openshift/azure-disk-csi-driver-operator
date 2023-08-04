@@ -37,7 +37,8 @@ const (
 	operatorName             = "azure-disk-csi-driver-operator"
 	operandName              = "azure-disk-csi-driver"
 	openShiftConfigNamespace = "openshift-config"
-	secretName               = "azure-disk-credentials"
+	cloudCredSecretName      = "azure-disk-credentials"
+	metricsCertSecretName    = "azure-disk-csi-driver-controller-metrics-serving-cert"
 	tokenFileKey             = "azure_federated_token_file"
 	trustedCAConfigMap       = "azure-disk-csi-driver-trusted-ca-bundle"
 	resync                   = 20 * time.Minute
@@ -206,7 +207,8 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		),
 		csidrivercontrollerservicecontroller.WithReplicasHook(nodeInformer.Lister()),
 		azurestackhub.WithAzureStackHubDeploymentHook(runningOnAzureStackHub),
-		csidrivercontrollerservicecontroller.WithSecretHashAnnotationHook(defaultNamespace, secretName, secretInformer),
+		csidrivercontrollerservicecontroller.WithSecretHashAnnotationHook(defaultNamespace, cloudCredSecretName, secretInformer),
+		csidrivercontrollerservicecontroller.WithSecretHashAnnotationHook(defaultNamespace, metricsCertSecretName, secretInformer),
 	).WithCSIDriverNodeService(
 		"AzureDiskDriverNodeServiceController",
 		replacedAssets.GetAssetFunc(),
@@ -216,7 +218,8 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		[]factory.Informer{
 			secretInformer.Informer(),
 		},
-		csidrivernodeservicecontroller.WithSecretHashAnnotationHook(defaultNamespace, secretName, secretInformer),
+		csidrivernodeservicecontroller.WithSecretHashAnnotationHook(defaultNamespace, cloudCredSecretName, secretInformer),
+		csidrivernodeservicecontroller.WithSecretHashAnnotationHook(defaultNamespace, metricsCertSecretName, secretInformer),
 		csidrivernodeservicecontroller.WithObservedProxyDaemonSetHook(),
 		csidrivernodeservicecontroller.WithCABundleDaemonSetHook(
 			defaultNamespace,
@@ -296,13 +299,13 @@ func isWorkloadIdentityEnabled(featureGates featuregates.FeatureGate, kubeClient
 	if !featureGates.Enabled(configv1.FeatureGateAzureWorkloadIdentity) {
 		return false, nil
 	}
-	secret, err := kubeClient.CoreV1().Secrets(defaultNamespace).Get(context.Background(), secretName, metav1.GetOptions{})
+	secret, err := kubeClient.CoreV1().Secrets(defaultNamespace).Get(context.Background(), cloudCredSecretName, metav1.GetOptions{})
 	if err != nil {
-		return false, fmt.Errorf("could not get secret %s/%s: %v", defaultNamespace, secretName, err)
+		return false, fmt.Errorf("could not get secret %s/%s: %v", defaultNamespace, cloudCredSecretName, err)
 	}
 	_, hasKey := secret.Data[tokenFileKey]
 	if !hasKey {
-		klog.Warningf("Workloads Identity feature will be disabled: feature gate is enabled, but secret %s/%s doesn't have the %q key.", defaultNamespace, secretName, tokenFileKey)
+		klog.Warningf("Workloads Identity feature will be disabled: feature gate is enabled, but secret %s/%s doesn't have the %q key.", defaultNamespace, cloudCredSecretName, tokenFileKey)
 	}
 	return hasKey, nil
 }
