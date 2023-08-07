@@ -219,7 +219,6 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 			secretInformer.Informer(),
 		},
 		csidrivernodeservicecontroller.WithSecretHashAnnotationHook(defaultNamespace, cloudCredSecretName, secretInformer),
-		csidrivernodeservicecontroller.WithSecretHashAnnotationHook(defaultNamespace, metricsCertSecretName, secretInformer),
 		csidrivernodeservicecontroller.WithObservedProxyDaemonSetHook(),
 		csidrivernodeservicecontroller.WithCABundleDaemonSetHook(
 			defaultNamespace,
