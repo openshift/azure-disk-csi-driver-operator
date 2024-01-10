@@ -10,7 +10,5 @@
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
-
 _output
-azure-disk-csi-driver-operator
 .idea
