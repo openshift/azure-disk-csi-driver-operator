@@ -20,6 +20,7 @@ spec:
       labels:
         app: azure-disk-csi-driver-controller
       annotations:
+        openshift.io/required-scc: restricted-v2
         target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
     spec:
       hostNetwork: true
