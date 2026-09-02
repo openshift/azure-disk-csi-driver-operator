@@ -2,7 +2,6 @@ package operator
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -14,7 +13,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
-	configv1 "github.com/openshift/api/config/v1"
 	opv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/azure-disk-csi-driver-operator/assets"
 	"github.com/openshift/azure-disk-csi-driver-operator/pkg/azurestackhub"
@@ -24,7 +22,6 @@ import (
 	opinformers "github.com/openshift/client-go/operator/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/controller/factory"
-	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/csi/csicontrollerset"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
@@ -43,9 +40,8 @@ const (
 	trustedCAConfigMap       = "azure-disk-csi-driver-trusted-ca-bundle"
 	resync                   = 20 * time.Minute
 
-	ccmOperatorImageEnvName        = "CLUSTER_CLOUD_CONTROLLER_MANAGER_OPERATOR_IMAGE"
-	diskEncryptionSetID            = "diskEncryptionSetID"
-	operatorImageVersionEnvVarName = "OPERATOR_IMAGE_VERSION"
+	ccmOperatorImageEnvName = "CLUSTER_CLOUD_CONTROLLER_MANAGER_OPERATOR_IMAGE"
+	diskEncryptionSetID     = "diskEncryptionSetID"
 )
 
 func RunOperator(ctx context.Context, controllerConfig *controllercmd.ControllerContext) error {
@@ -105,31 +101,9 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		go azureStackConfigSyncer.Run(ctx, 1)
 	}
 
-	desiredVersion := os.Getenv(operatorImageVersionEnvVarName)
-	missingVersion := "0.0.1-snapshot"
-
-	featureGateAccessor := featuregates.NewFeatureGateAccess(
-		desiredVersion,
-		missingVersion,
-		configInformers.Config().V1().ClusterVersions(),
-		configInformers.Config().V1().FeatureGates(),
-		controllerConfig.EventRecorder,
-	)
-	go featureGateAccessor.Run(ctx)
-	go configInformers.Start(ctx.Done())
-
-	select {
-	case <-featureGateAccessor.InitialFeatureGatesObserved():
-		featureGates, _ := featureGateAccessor.CurrentFeatureGates()
-		klog.Info("FeatureGates initialized", "knownFeatures", featureGates.KnownFeatures())
-	case <-time.After(1 * time.Minute):
-		klog.Error(nil, "timed out waiting for FeatureGate detection")
-		return fmt.Errorf("timed out waiting for FeatureGate detection")
-	}
-
 	replacedAssets := &assetWithReplacement{}
 	replacedAssets.Replace("${CLUSTER_CLOUD_CONTROLLER_MANAGER_OPERATOR_IMAGE}", os.Getenv(ccmOperatorImageEnvName))
-	replaceWorkloadIdentityConfig(replacedAssets, featureGateAccessor)
+	replacedAssets.Replace("${ENABLE_AZURE_WORKLOAD_IDENTITY}", "true")
 
 	csiControllerSet := csicontrollerset.NewCSIControllerSet(
 		operatorClient,
@@ -275,21 +249,4 @@ func (r *assetWithReplacement) GetAssetFunc() func(name string) ([]byte, error) 
 
 		return []byte(asset), nil
 	}
-}
-
-func replaceWorkloadIdentityConfig(assets *assetWithReplacement, fg featuregates.FeatureGateAccess) error {
-	workloadIdentity := "false"
-
-	featureGates, err := fg.CurrentFeatureGates()
-	if err != nil {
-		return err
-	}
-
-	if featureGates.Enabled(configv1.FeatureGateAzureWorkloadIdentity) {
-		workloadIdentity = "true"
-	}
-
-	assets.Replace("${ENABLE_AZURE_WORKLOAD_IDENTITY}", workloadIdentity)
-
-	return nil
 }
